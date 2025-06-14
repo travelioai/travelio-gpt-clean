@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 export default async function handler(req, res) {
   console.log("🔔 Incoming request method:", req.method);
@@ -13,8 +13,8 @@ export default async function handler(req, res) {
       console.log("✅ Webhook verified");
       return res.status(200).send(challenge);
     } else {
-      console.log("❌ Webhook verification failed");
-      return res.status(403).send('Verification failed');
+      console.log("❌ Verification failed");
+      return res.status(403).send("Verification failed");
     }
   }
 
@@ -24,17 +24,14 @@ export default async function handler(req, res) {
       console.log("📩 Webhook payload:", JSON.stringify(body, null, 2));
 
       const messageText = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
-      const waId = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from;
-
+      const from = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from;
       console.log("📨 Message text:", messageText);
-      console.log("📱 WhatsApp ID:", waId);
 
-      if (!messageText || !waId) {
-        console.log("⚠️ Missing message or waId");
-        return res.status(200).json({ status: 'no message or waId' });
+      if (!messageText) {
+        console.log("⚠️ No message found");
+        return res.status(200).json({ reply: "ما في رسالة واضحة" });
       }
 
-      // Request to GPT
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -52,30 +49,28 @@ export default async function handler(req, res) {
 
       const reply = gptData.choices?.[0]?.message?.content || "ما فهمت عليك، ممكن تعيد؟";
 
-      // Send message back to user via WhatsApp API
-      const whatsappSendRes = await fetch(`https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-        method: "POST",
+      // ✉️ إرسال الرد على واتساب
+      await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.WHATSAPP_TOKEN}`
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`
         },
         body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: waId,
+          messaging_product: 'whatsapp',
+          to: from,
           text: { body: reply }
         })
       });
 
-      const whatsappResponse = await whatsappSendRes.json();
-      console.log("📤 WhatsApp Send Response:", JSON.stringify(whatsappResponse, null, 2));
-
-      return res.status(200).json({ status: "message sent", reply });
+      return res.status(200).json({ status: "sent", to: from, reply });
     } catch (error) {
-      console.error("🔥 Error:", error);
-      return res.status(500).send("Internal Server Error");
+      console.error("🔥 GPT or WhatsApp Error:", error);
+      return res.status(500).send("Server Error");
     }
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
+  console.log("⛔ Method Not Allowed:", req.method);
   res.status(405).end(`Method ${req.method} Not Allowed`);
 }
