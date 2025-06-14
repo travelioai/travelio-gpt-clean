@@ -31,8 +31,8 @@ export default async function handler(req, res) {
       console.log("📨 Message text:", messageText);
 
       if (!messageText) {
-        console.log("⚠️ No message found");
-        return res.status(200).json({ reply: "ما في رسالة واضحة" });
+        console.log("📨 Message text:", messageText);
+return res.status(200).json({ keyUsed: process.env.OPENAI_API_KEY });
       }
 
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
