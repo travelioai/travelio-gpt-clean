@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       return res.status(200).send(challenge);
     } else {
       console.log("❌ Webhook verification failed");
-      return res.status(403).send("Verification failed");
+      return res.status(403).send('Verification failed');
     }
   }
 
@@ -57,5 +57,5 @@ export default async function handler(req, res) {
 
   res.setHeader('Allow', ['GET', 'POST']);
   console.log("⛔ Method Not Allowed:", req.method);
-  res.status(405).end(`Method ${req.method} Not Allowed`);
+  return res.status(405).end(`Method ${req.method} Not Allowed`);
 }
