@@ -1,4 +1,5 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 export default async function handler(req, res) {
   console.log("🔔 Incoming request method:", req.method);
@@ -25,10 +26,11 @@ export default async function handler(req, res) {
 
       const messageText = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
       const from = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from;
+
       console.log("📨 Message text:", messageText);
 
-      if (!messageText) {
-        console.log("⚠️ No message found");
+      if (!messageText || !from) {
+        console.log("⚠️ No message found or missing sender info");
         return res.status(200).json({ reply: "ما في رسالة واضحة" });
       }
 
@@ -49,28 +51,28 @@ export default async function handler(req, res) {
 
       const reply = gptData.choices?.[0]?.message?.content || "ما فهمت عليك، ممكن تعيد؟";
 
-      // ✉️ إرسال الرد على واتساب
-      await fetch(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-        method: 'POST',
+      // 👇 Send reply back to WhatsApp
+      await fetch(`https://graph.facebook.com/v17.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.WHATSAPP_TOKEN}`
         },
         body: JSON.stringify({
-          messaging_product: 'whatsapp',
+          messaging_product: "whatsapp",
           to: from,
+          type: "text",
           text: { body: reply }
         })
       });
 
-      return res.status(200).json({ status: "sent", to: from, reply });
+      return res.status(200).json({ status: "✅ Message replied" });
     } catch (error) {
-      console.error("🔥 GPT or WhatsApp Error:", error);
-      return res.status(500).send("Server Error");
+      console.error("🔥 GPT Error:", error);
+      return res.status(500).send("GPT Server Error");
     }
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
-  console.log("⛔ Method Not Allowed:", req.method);
   res.status(405).end(`Method ${req.method} Not Allowed`);
 }
