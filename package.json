@@ -1,5 +1,8 @@
 {
   "name": "travelio-ai-webhook",
   "version": "1.0.0",
-  "main": "index.js"
+  "main": "index.js",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
 }
