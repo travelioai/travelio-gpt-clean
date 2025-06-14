@@ -24,11 +24,15 @@ export default async function handler(req, res) {
       console.log("📩 Webhook payload:", JSON.stringify(body, null, 2));
 
       const messageText = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
-      console.log("📨 Message text:", messageText);
+      const senderNumber = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from;
+      const phoneNumberId = body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
 
-      if (!messageText) {
-        console.log("⚠️ No message found");
-        return res.status(200).json({ reply: "ما في رسالة واضحة" });
+      console.log("📨 Message text:", messageText);
+      console.log("📱 Sender number:", senderNumber);
+
+      if (!messageText || !senderNumber || !phoneNumberId) {
+        console.log("⚠️ Missing data");
+        return res.status(200).end();
       }
 
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -44,18 +48,34 @@ export default async function handler(req, res) {
       });
 
       const gptData = await gptResponse.json();
-      console.log("🤖 GPT Raw Response:", JSON.stringify(gptData, null, 2));
-
       const reply = gptData.choices?.[0]?.message?.content || "ما فهمت عليك، ممكن تعيد؟";
 
-      return res.status(200).json({ reply });
+      console.log("🤖 GPT reply:", reply);
+
+      // 🟢 Send reply to WhatsApp
+      const whatsappRes = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: senderNumber,
+          text: { body: reply }
+        })
+      });
+
+      const whatsappData = await whatsappRes.json();
+      console.log("📤 WhatsApp API response:", JSON.stringify(whatsappData, null, 2));
+
+      return res.status(200).end();
     } catch (error) {
-      console.error("🔥 GPT Error:", error);
-      return res.status(500).send("GPT Server Error");
+      console.error("🔥 Error:", error);
+      return res.status(500).send("Internal Server Error");
     }
   }
 
   res.setHeader('Allow', ['GET', 'POST']);
-  console.log("⛔ Method Not Allowed:", req.method);
-  return res.status(405).end(`Method ${req.method} Not Allowed`);
+  res.status(405).end(`Method ${req.method} Not Allowed`);
 }
