@@ -1,6 +1,4 @@
-// ✅ حل مشكلة import fetch في بيئة CommonJS (Vercel)
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 export default async function handler(req, res) {
   console.log("🔔 Incoming request method:", req.method);
@@ -11,13 +9,11 @@ export default async function handler(req, res) {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    console.log("🧪 Verification Request:", { mode, token, challenge });
-
     if (mode && token === verifyToken) {
-      console.log("✅ Verification passed");
+      console.log("✅ Webhook verified");
       return res.status(200).send(challenge);
     } else {
-      console.log("❌ Verification failed");
+      console.log("❌ Webhook verification failed");
       return res.status(403).send("Verification failed");
     }
   }
@@ -31,8 +27,8 @@ export default async function handler(req, res) {
       console.log("📨 Message text:", messageText);
 
       if (!messageText) {
-        console.log("📨 Message text:", messageText);
-return res.status(200).json({ keyUsed: process.env.OPENAI_API_KEY });
+        console.log("⚠️ No message found");
+        return res.status(200).json({ reply: "ما في رسالة واضحة" });
       }
 
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -51,18 +47,15 @@ return res.status(200).json({ keyUsed: process.env.OPENAI_API_KEY });
       console.log("🤖 GPT Raw Response:", JSON.stringify(gptData, null, 2));
 
       const reply = gptData.choices?.[0]?.message?.content || "ما فهمت عليك، ممكن تعيد؟";
-      return res.status(200).json({ reply });
 
+      return res.status(200).json({ reply });
     } catch (error) {
       console.error("🔥 GPT Error:", error);
       return res.status(500).send("GPT Server Error");
     }
   }
 
-  // إذا كانت الميثود غير GET أو POST
   res.setHeader('Allow', ['GET', 'POST']);
   console.log("⛔ Method Not Allowed:", req.method);
   res.status(405).end(`Method ${req.method} Not Allowed`);
 }
-
-
