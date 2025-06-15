@@ -59,16 +59,16 @@ module.exports = async (req, res) => {
       reply = completion.data.choices[0].message.content.trim();
     }
 
-    await axios.post(\`https://graph.facebook.com/v19.0/\${process.env.PHONE_NUMBER_ID}/messages\`, {
-      messaging_product: "whatsapp",
-      to: from,
-      text: { body: reply }
-    }, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: \`Bearer \${process.env.WHATSAPP_TOKEN}\`
-      }
-    });
+await axios.post(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+  messaging_product: "whatsapp",
+  to: from,
+  text: { body: reply }
+}, {
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`
+  }
+});
 
     res.status(200).json({ message: "Reply sent." });
   } catch (err) {
