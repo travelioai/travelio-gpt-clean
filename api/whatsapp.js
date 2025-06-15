@@ -2,7 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-const memoryPath = path.join(__dirname, "../../memory.json");
+const memory = JSON.parse(fs.readFileSync(path.join(__dirname, "memory.json"), "utf-8"));
 let memory = {};
 
 try {
