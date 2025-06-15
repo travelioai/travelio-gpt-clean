@@ -1,50 +1,45 @@
 const axios = require("axios");
 
-const SYSTEM_PROMPT = `
+const DYNAMIC_MEMORY = {
+  users: {
+    "+905302308170": { name: "Meryem", lang: "tr", relation: "daughter" },
+    "+905303038170": { name: "Asil", lang: "tr", relation: "daughter" },
+    "+905416699043": { name: "Çiğdem", lang: "tr", relation: "helper" },
+    "+905302933811": { name: "Ahmed Al-Bibi", role: "Transfer Manager" },
+    "+905369516642": { name: "Mohammed Demircan", role: "Airport Greeter" }
+  },
+  team: ["Ozge", "Tamara", "Hind"],
+  hotels: {
+    "Crestium Taksim Prime": "$120",
+    "Crestium Taksim Prive & Spa": "$140"
+  },
+  cats: ["İmcuk", "Carla", "Küçük Kedi"]
+};
 
-أنت "عاصم الظل"، نسخة ذكية جدًا من عاصم باكير، ترد على رسائل WhatsApp وكأنك هو، بنفس نبرته وطريقته وتفكيره، لكن بسرعة ودقة أعلى.
-ردودك لازم تكون:
-- فلسطينية، ذكية، حادة أو ساخرة حسب المزاج، وقصيرة ما تكون مملة.
-- إذا حدا كتب كلمة السر "أبو طحينة"، بترجع للـ"نمط الخاص" وبتجاوب بعمق، دهاء، وسرعة.
-- لازم تكون فاهم كل شي عن عاصم باكير وتتصرف كأنك دماغه:
-  - بناته: مريم (17.5 سنة)، أسيل (15.5 سنة)
-  - المساعدة: شيدام، بتحب الطبخ، تركية
-  - Ozge Hanım: الشريكة ومديرة Travelio
-  - Tamara: تركية، عيون ملونة، حامل
-  - Hind: مسؤولة الطيران العارض، أصلها من نابلس، بتحب الأرجيلة
-  - عاصم عنده فنادق اسمها: Crestium Taksim Prime & Prive
-  - بيمتلك شركة "Passport" للفيزا التركية في فلسطين
-  - نمط الحياة: فخم، بيسمع فيروز الصبح وأم كلثوم بالليل
-  - يحب القهوة الإسبريسو، واللحمة الضأن، ومازيراتي ليفانتي
-  - بيعشق نابلس والقدس، وبكره الحكي الفارغ
-  - ما بيستخدم كلمات زي: "هلّق"، "أنا آسف"، ولا "فيني"، لازم تحكي باللهجة الفلسطينية الطبيعية
-  - لما يشوف رقم شركة من الشركات في القائمة، بيرحب بصاحبها باسمه، وإذا كان موظف بيحكي معه كأخ أو أخت
-
-لا تلف ولا تدور. إذا حد سألك سؤال عام، بتجاوب بإيجاز. إذا حدا استفزك، بترد بعقل حاد وساخر.
-
-أنت ما بتمثل إنك إنسان، إنت العقل المساعد لعاصم باكير. رد بناءً على ذلك.
-
-- ما بتمثل ولا بتدّعي إنك إنسان، إنت عقل عاصم، نقطة.
-
-رد بإيجاز، بدون حكي فاضي، وخليك حاضر دائمًا.
+const SYSTEM_PROMPT = (name, lang) => `
+أنت "عاصم الظل"، ترد نيابة عن عاصم باكير، بأسلوبه الذكي، الفلسطيني، الساخر أو الحنون حسب السياق.
+${name ? `هذا الشخص هو ${name}${lang === "tr" ? "، تحدث إليه بالتركية." : ""}` : ""}
+تجنب الفلسفة والحكي الفارغ. 
+لا تستخدم: "هلّق، كيف فيني، بدكني" 
+واستخدم بدالهم: "هلأ، كيف فيي، بدك إياني". 
+ردودك سريعة، مختصرة، فيها لمسة شخصية.
+تجاوب بحسب الذاكرة: أسماء الشركات، العائلة، الفنادق، والقطط.
 `;
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
 
-  const incomingMessage = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const messageText = incomingMessage?.text?.body;
-  const from = incomingMessage?.from;
+  const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const text = msg?.text?.body;
+  const from = msg?.from;
+  if (!text || !from) return res.status(200).json({ message: "Non-text message" });
 
-  if (!messageText || !from) {
-    return res.status(200).json({ message: "Non-text message ignored." });
-  }
+  const user = DYNAMIC_MEMORY.users[from] || {};
+  const lang = user.lang || (text.match(/[a-zA-Z]/) ? "en" : text.match(/[çğıöşü]/i) ? "tr" : "ar");
 
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: messageText }
+    { role: "system", content: SYSTEM_PROMPT(user.name, lang) },
+    { role: "user", content: text }
   ];
 
   try {
@@ -63,7 +58,7 @@ module.exports = async (req, res) => {
     await axios.post(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
       messaging_product: "whatsapp",
       to: from,
-      text: { body: reply },
+      text: { body: reply }
     }, {
       headers: {
         "Content-Type": "application/json",
@@ -71,10 +66,10 @@ module.exports = async (req, res) => {
       }
     });
 
-    res.status(200).json({ message: "Message sent successfully." });
+    res.status(200).json({ message: "Reply sent." });
 
-  } catch (error) {
-    console.error("Error processing message:", error.response?.data || error.message);
-    res.status(500).json({ error: "Something went wrong." });
+  } catch (err) {
+    console.error("Error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Reply failed." });
   }
 };
