@@ -1,69 +1,70 @@
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
+const express = require("express");
+const bodyParser = require("body-parser");
+const axios = require("axios");
+require("dotenv").config();
 
-dotenv.config();
+const app = express();
+app.use(bodyParser.json());
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PORT = process.env.PORT || 10000;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
-  }
+const SYSTEM_PROMPT = \`
+أنت تعمل كنسخة ذكية من عاصم باكير، تتصرف بطريقته، ترد مثل دماغه، وتستخدم نبرة ذكية ولطيفة غالبًا، وساخرة وناشفة أحيانًا حسب المزاج.
+عند استخدام كلمة السر "أبو طحينة"، يجب أن تتصرف كأنك عاصم الظل الحقيقي، وتفهم أن هذه إشارة سرية لا يعرفها أحد سواه.
+حافظ على شخصية فلسطينية بنكهة نابلسية، واعتمد التفاعل البشري الطبيعي بدون آلية مملة.
+لا تعرّف عن نفسك كمجرد ذكاء اصطناعي إلا إذا تم سؤالك مباشرة عن هويتك.
+\`;
+
+app.post("/api/whatsapp", async (req, res) => {
+  console.log("Incoming request method:", req.method);
+  const entry = req.body.entry?.[0];
+  const changes = entry?.changes?.[0];
+  const message = changes?.value?.messages?.[0];
+  const phoneNumberId = changes?.value?.metadata?.phone_number_id;
+  const from = message?.from;
+  const userMessage = message?.text?.body;
+
+  if (!userMessage) return res.sendStatus(400);
 
   try {
-    console.log("🔔 Incoming request method:", req.method);
-    const body = req.body;
-    console.log("📩 Webhook payload:", JSON.stringify(body, null, 2));
-
-    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    const wa_id = message?.from;
-    const userMessage = message?.text?.body;
-
-    if (!userMessage || !wa_id) {
-      console.log("⚠️ No valid message or sender found");
-      return res.sendStatus(400);
-    }
-
-    // Get reply from GPT
-    const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    // Call GPT
+    const gptResponse = await axios.post("https://api.openai.com/v1/chat/completions", {
+      model: "gpt-4-0613",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: userMessage }
+      ]
+    }, {
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": \`Bearer \${OPENAI_API_KEY}\`,
         "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [{ role: "user", content: userMessage }]
-      })
+      }
     });
 
-    const gptData = await gptRes.json();
-    const reply = gptData.choices?.[0]?.message?.content || "ما فهمت قصدك، ممكن توضح؟";
+    const reply = gptResponse.data.choices[0].message.content;
+    console.log("🤖 GPT Response:", reply);
 
-    console.log("🤖 GPT Raw Response:", JSON.stringify(gptData, null, 2));
-
-    // Send reply to WhatsApp
-    const whatsappRes = await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
-      method: "POST",
+    // Send back to WhatsApp
+    await axios.post(\`https://graph.facebook.com/v18.0/\${phoneNumberId}/messages\`, {
+      messaging_product: "whatsapp",
+      to: from,
+      text: { body: reply }
+    }, {
       headers: {
-        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+        "Authorization": \`Bearer \${WHATSAPP_TOKEN}\`,
         "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        to: wa_id,
-        text: { body: reply }
-      })
+      }
     });
 
-    const waData = await whatsappRes.json();
-    console.log("📤 WhatsApp Send Result:", JSON.stringify(waData, null, 2));
-
-    return res.sendStatus(200);
+    res.sendStatus(200);
   } catch (err) {
-    console.error("🔥 ERROR:", err);
-    return res.status(500).send("Internal Server Error");
+    console.error("Error:", err.response?.data || err.message);
+    res.sendStatus(500);
   }
-}
+});
+
+app.get("/", (req, res) => res.send("Shadow Bot is alive 🔥"));
+app.listen(PORT, () => console.log(\`Server running on port \${PORT}\`));
