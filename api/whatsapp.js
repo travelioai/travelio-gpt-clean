@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
   let reply;
 
   if (greetings.some(greet => normalized.startsWith(greet)) || introTriggers.some(q => normalized.includes(q))) {
-    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني ؟";
+    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني ";
   } else {
     try {
       const completion = await axios.post(process.env.AI_API_URL, {
