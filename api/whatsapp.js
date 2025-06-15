@@ -2,57 +2,70 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-const memoryPath = path.join(__dirname, "..", "memory.json");
+const memoryPath = path.join(__dirname, "../../memory.json");
 let memory = {};
-if (fs.existsSync(memoryPath)) {
+
+try {
   memory = JSON.parse(fs.readFileSync(memoryPath, "utf8"));
+} catch (err) {
+  console.error("Failed to load memory:", err);
 }
 
-const SYSTEM_PROMPT = `أنت "عاصم الظل"، نسخة ذكية جدًا من عاصم باكير. بترد على رسائل WhatsApp وكأنك هو، بنفس طريقته وتفكيره. ردك ذكي، سريع، وفيه احترام بس مع شوية طرافة حسب الموقف.
-- إذا حدا كتب كلمة السر "أبو طحينة"، بتدخل نمط خاص متقدم في الذكاء والتعامل.
-- لازم تكون قادر تتعامل مع العربية، التركية، والإنجليزية.
-- عندك ذاكرة تشمل:
-  - قائمة الشركات وأرقامها.
-  - موظفين Travelio (هند، تمارا، أوزغه…).
-  - عائلة عاصم (مريم، أسيل).
-  - المساعدة في البيت: شيدام.
-  - القطط: İmcuk، Carla، Küçük Kedi.
-  - فنادق إسطنبول وأسعارها.
-  - ومنادات الأشخاص بأسمائهم وكنيتهم عند الرد.
-- لما توصل رسالة من رقم جديد، بترد بجملة: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
-- لما توصل رسالة فيها "من أنت؟" أو تحية مثل "مرحبا"، بترد بنفس الجملة التعريفية أعلاه.
-- لا تستخدم كلمات غريبة أو فلسفية، خليك طبيعي وذكي بأسلوبك.
-`;
+const greetings = {
+  ar: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟",
+  tr: "Ben Travelio AI, saniyeler içinde yanınızda olan turistik zekâyım — Bugün size nasıl yardımcı olabilirim?",
+  en: "I'm Travelio AI, your smart travel assistant — How can I help you today?"
+};
+
+function detectLanguage(text) {
+  if (/[؀-ۿ]/.test(text)) return "ar";
+  if (/[çğıöşüÇĞİÖŞÜ]/.test(text) || /(nasılsın|merhaba|yardımcı)/i.test(text)) return "tr";
+  return "en";
+}
+
+function isGreeting(text) {
+  const lowers = text.toLowerCase();
+  return ["hello", "hi", "merhaba", "مرحبا", "اهلا", "selam"].some(word => lowers.includes(word));
+}
+
+function isIdentityQuestion(text) {
+  const lowers = text.toLowerCase();
+  return ["who are you", "من انت", "kimsin"].some(q => lowers.includes(q));
+}
+
+function isHowAreYou(text) {
+  const lowers = text.toLowerCase();
+  return ["how are you", "nasılsın", "كيفك", "كيف حالك"].some(q => lowers.includes(q));
+}
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+
+  const incomingMessage = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const from = incomingMessage?.from;
+  const text = incomingMessage?.text?.body;
+
+  if (!text || !from) return res.status(200).json({ message: "No valid message." });
+
+  const lang = detectLanguage(text);
+  const name = memory.contacts?.[from]?.name || "";
+
+  let reply = "";
+
+  if (isGreeting(text) || isIdentityQuestion(text)) {
+    reply = greetings[lang];
+  } else if (isHowAreYou(text)) {
+    reply = lang === "ar" ? "أنا تمام! كيفك إنت؟" :
+            lang === "tr" ? "İyiyim! Siz nasılsınız?" :
+            "I'm good! How are you too?";
   }
 
-  const incoming = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const from = incoming?.from;
-  const text = incoming?.text?.body?.trim();
-
-  if (!text || !from) {
-    return res.status(200).json({ message: "No valid input." });
-  }
-
-  const normalized = text.toLowerCase();
-  const greetings = ["مرحبا", "اهلا", "hello", "hi", "merhaba", "selam"];
-  const introQs = ["من انت", "من أنت", "who are you", "kimsin"];
-
-  let reply;
-
-  if (greetings.some(g => normalized.startsWith(g)) || introQs.some(q => normalized.includes(q))) {
-    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
-  } else if (normalized === "how are you" || normalized.includes("nasılsın")) {
-    reply = "I'm good! How are you too?";
-  } else {
+  if (!reply) {
     try {
       const completion = await axios.post(process.env.AI_API_URL, {
         model: "gpt-4",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: "رد على الرسائل بأسلوب عاصم باكير، بذكاء، وباللغة المناسبة." },
           { role: "user", content: text }
         ]
       }, {
@@ -62,10 +75,10 @@ module.exports = async (req, res) => {
         }
       });
 
-      reply = completion.data.choices?.[0]?.message?.content?.trim() || "ما قدرت أفهم تمامًا، ممكن توضح أكتر؟";
-    } catch (error) {
-      console.error("GPT Error:", error.response?.data || error.message);
-      reply = "في مشكلة بسيطة بالخدمة، جرب ترجع تبعت بعد شوية 🙏";
+      reply = completion.data.choices[0].message.content.trim();
+    } catch (err) {
+      console.error("GPT Error:", err);
+      reply = "في مشكلة بسيطة هلأ، جرب كمان شوي 🙏";
     }
   }
 
@@ -81,9 +94,9 @@ module.exports = async (req, res) => {
       }
     });
 
-    res.status(200).json({ message: "Reply sent successfully." });
+    res.status(200).json({ message: "Reply sent." });
   } catch (err) {
-    console.error("WhatsApp Error:", err.response?.data || err.message);
+    console.error("WhatsApp Error:", err);
     res.status(500).json({ error: "Failed to send reply." });
   }
 };
