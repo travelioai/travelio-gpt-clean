@@ -2,71 +2,55 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-const memoryPath = path.join(__dirname, "../../memory.json");
+const memoryPath = path.join(__dirname, "..", "memory.json");
 let memory = {};
 
 try {
   memory = JSON.parse(fs.readFileSync(memoryPath, "utf8"));
 } catch (err) {
-  console.error("Failed to load memory:", err);
+  console.error("Memory load error:", err.message);
 }
 
-const greetings = {
-  ar: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟",
-  tr: "Ben Travelio AI, saniyeler içinde yanınızda olan turistik zekâyım — Bugün size nasıl yardımcı olabilirim?",
-  en: "I'm Travelio AI, your smart travel assistant — How can I help you today?"
-};
-
-function detectLanguage(text) {
-  if (/[؀-ۿ]/.test(text)) return "ar";
-  if (/[çğıöşüÇĞİÖŞÜ]/.test(text) || /(nasılsın|merhaba|yardımcı)/i.test(text)) return "tr";
-  return "en";
-}
-
-function isGreeting(text) {
-  const lowers = text.toLowerCase();
-  return ["hello", "hi", "merhaba", "مرحبا", "اهلا", "selam"].some(word => lowers.includes(word));
-}
-
-function isIdentityQuestion(text) {
-  const lowers = text.toLowerCase();
-  return ["who are you", "من انت", "kimsin"].some(q => lowers.includes(q));
-}
-
-function isHowAreYou(text) {
-  const lowers = text.toLowerCase();
-  return ["how are you", "nasılsın", "كيفك", "كيف حالك"].some(q => lowers.includes(q));
-}
+const SYSTEM_PROMPT = `
+أنت "عاصم الظل"، دماغ عاصم باكير الذكي، ترد على الرسائل بأسلوبه، بالعربي، التركي أو الإنجليزي.
+- عندك ذاكرة فيها الشركات، الموظفين، العائلة، والقطط (Imcuk, Carla, Küçük Kedi).
+- إذا وصلت رسالة فيها تحية أو "من أنت؟"، رد بجملة: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
+- إذا حدا سأل "كيفك؟" رد طبيعي: "أنا تمام، كيفك إنت؟"
+- إذا انذكرت كلمة السر "أبو طحينة" فعّل نمط الظل الكامل الذكي
+`;
 
 module.exports = async (req, res) => {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
-
-  const incomingMessage = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const from = incomingMessage?.from;
-  const text = incomingMessage?.text?.body;
-
-  if (!text || !from) return res.status(200).json({ message: "No valid message." });
-
-  const lang = detectLanguage(text);
-  const name = memory.contacts?.[from]?.name || "";
-
-  let reply = "";
-
-  if (isGreeting(text) || isIdentityQuestion(text)) {
-    reply = greetings[lang];
-  } else if (isHowAreYou(text)) {
-    reply = lang === "ar" ? "أنا تمام! كيفك إنت؟" :
-            lang === "tr" ? "İyiyim! Siz nasılsınız?" :
-            "I'm good! How are you too?";
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  if (!reply) {
+  const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const messageText = msg?.text?.body?.trim();
+  const from = msg?.from;
+
+  if (!messageText || !from) {
+    return res.status(200).json({ message: "Non-text message ignored." });
+  }
+
+  const text = messageText.toLowerCase();
+  const greetings = ["hello", "hi", "مرحبا", "اهلا", "merhaba", "selam"];
+  const intros = ["who are you", "kimsin", "من انت", "من أنت"];
+  const howAreYou = ["how are you", "nasılsın", "كيفك", "كيف حالك"];
+
+  let reply;
+
+  if (greetings.some(g => text.includes(g)) || intros.some(i => text.includes(i))) {
+    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
+  } else if (howAreYou.some(p => text.includes(p))) {
+    reply = "أنا تمام، كيفك إنت؟";
+  } else {
     try {
       const completion = await axios.post(process.env.AI_API_URL, {
         model: "gpt-4",
         messages: [
-          { role: "system", content: "رد على الرسائل بأسلوب عاصم باكير، بذكاء، وباللغة المناسبة." },
-          { role: "user", content: text }
+          { role: "system", content: SYSTEM_PROMPT + "\nالذاكرة:
+" + JSON.stringify(memory) },
+          { role: "user", content: messageText }
         ]
       }, {
         headers: {
@@ -77,8 +61,8 @@ module.exports = async (req, res) => {
 
       reply = completion.data.choices[0].message.content.trim();
     } catch (err) {
-      console.error("GPT Error:", err);
-      reply = "في مشكلة بسيطة هلأ، جرب كمان شوي 🙏";
+      console.error("GPT Error:", err.message);
+      reply = "واجهتني مشكلة بسيطة. جرب بعد شوي 🙏";
     }
   }
 
@@ -94,9 +78,9 @@ module.exports = async (req, res) => {
       }
     });
 
-    res.status(200).json({ message: "Reply sent." });
+    res.status(200).json({ message: "Reply sent successfully." });
   } catch (err) {
-    console.error("WhatsApp Error:", err);
-    res.status(500).json({ error: "Failed to send reply." });
+    console.error("WhatsApp Send Error:", err.message);
+    res.status(500).json({ error: "Failed to send message." });
   }
 };
