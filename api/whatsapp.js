@@ -1,16 +1,16 @@
+import express from 'express';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+
 dotenv.config();
 
-export default async function handler(req, res) {
-  if (req.method === 'GET') {
-    return res.status(200).send("👋 Webhook is running");
-  }
+const router = express.Router();
 
-  if (req.method !== 'POST') {
-    return res.status(405).send("Method Not Allowed");
-  }
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
+router.post('/', async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
     const changes = entry?.changes?.[0]?.value;
@@ -19,14 +19,14 @@ export default async function handler(req, res) {
     const userMessage = message?.text?.body;
 
     if (!userMessage || !wa_id) {
-      return res.status(400).send("Invalid request");
+      return res.sendStatus(400);
     }
 
-    // Get reply from OpenAI
-    const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Get response from OpenAI
+    const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -35,27 +35,28 @@ export default async function handler(req, res) {
       })
     });
 
-    const gptData = await gptResponse.json();
-    const replyText = gptData.choices?.[0]?.message?.content || "ما فهمت، عيدها مرة ثانية 🙏";
+    const gptData = await gptRes.json();
+    const reply = gptData.choices?.[0]?.message?.content || "ما فهمت سؤالك، ممكن تعيد؟";
 
-    // Send reply back to WhatsApp
-    await fetch(`https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+    // Send message back to WhatsApp
+    await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         messaging_product: "whatsapp",
         to: wa_id,
-        text: { body: replyText }
+        text: { body: reply }
       })
     });
 
-    return res.status(200).send("Message sent to WhatsApp");
-
+    return res.sendStatus(200);
   } catch (error) {
-    console.error("🔥 Error:", error);
+    console.error("🔥 ERROR:", error);
     return res.status(500).send("Internal Server Error");
   }
-}
+});
+
+export default router;
