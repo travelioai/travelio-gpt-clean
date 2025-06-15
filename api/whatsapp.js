@@ -3,7 +3,6 @@ const fs = require("fs");
 const path = require("path");
 
 const memory = JSON.parse(fs.readFileSync(path.join(__dirname, "memory.json"), "utf-8"));
-let memory = {};
 
 try {
   memory = JSON.parse(fs.readFileSync(memoryPath, "utf-8"));
