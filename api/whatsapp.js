@@ -2,7 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-const memory = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../memory.json"), "utf-8"));
+const memory = JSON.parse(const memory = JSON.parse(fs.readFileSync('./memory.json', 'utf-8'));"utf-8"));
 
 const SYSTEM_PROMPT = `
 أنت "عاصم الظل"، ذكاء سياحي يتصرّف مثل عقل عاصم باكير — بنفس أسلوبه، وذكائه، وطريقته في الكلام.
