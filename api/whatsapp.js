@@ -1,64 +1,68 @@
+const express = require("express");
+const bodyParser = require("body-parser");
 const axios = require("axios");
+require("dotenv").config();
 
-const SYSTEM_PROMPT = `أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
+const app = express();
+app.use(bodyParser.json());
+
+const PORT = process.env.PORT || 10000;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const AI_API_URL = "https://api.openai.com/v1/chat/completions";
+const AI_API_KEY = process.env.AI_API_KEY;
+
+const SYSTEM_PROMPT = \`
+أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
 - ردودك لازم تكون قصيرة وذكية.
 - استخدم لهجة فلسطينية طبيعية، وابتعد عن الأسلوب الفصيح أو المصري.
 - إذا تم استخدام كلمة السر "أبو طحينة"، فعّل النمط الخاص.
 - لا تطيل الرد، ولا تدخل بسرد طويل أو ممل.
 - أظهر شخصية فيها هيبة وخفة دم في آنٍ واحد.
-`;
+\`;
 
-module.exports = async (req, res) => {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
+app.post("/webhook", async (req, res) => {
+  const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  if (!message) return res.sendStatus(200);
 
-  const incomingMessage = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const messageText = incomingMessage?.text?.body;
-  const from = incomingMessage?.from;
+  const from = message.from;
+  const userMessage = message.text?.body || "";
 
-  if (!messageText || !from) {
-    return res.status(200).json({ message: "Non-text message ignored." });
-  }
-
-  const systemPrompt = { role: "system", content: SYSTEM_PROMPT };
-  const userPrompt = { role: "user", content: messageText };
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userMessage }
+  ];
 
   try {
-    const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4",
-        messages: [systemPrompt, userPrompt],
-        temperature: 0.8,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
+    const completion = await axios.post(AI_API_URL, {
+      model: "gpt-4",
+      messages: messages
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: \`Bearer \${AI_API_KEY}\`
       }
-    );
+    });
 
-    const gptReply = response.data.choices[0].message.content;
-    await axios.post(
-      "https://graph.facebook.com/v19.0/" + process.env.PHONE_NUMBER_ID + "/messages",
-      {
-        messaging_product: "whatsapp",
-        to: from,
-        text: { body: gptReply },
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        },
+    const reply = completion.data.choices[0].message.content.trim();
+
+    await axios.post(\`https://graph.facebook.com/v19.0/\${PHONE_NUMBER_ID}/messages\`, {
+      messaging_product: "whatsapp",
+      to: from,
+      text: { body: reply }
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: \`Bearer \${WHATSAPP_TOKEN}\`
       }
-    );
+    });
 
-    res.status(200).json({ status: "sent", gptReply });
+    res.sendStatus(200);
   } catch (err) {
-    console.error("Error sending message:", err.response?.data || err.message);
-    res.status(500).json({ error: "Failed to send message" });
+    console.error("Error:", err.response?.data || err.message);
+    res.sendStatus(500);
   }
-};
+});
+
+app.get("/", (req, res) => res.send("Shadow Bot is running"));
+app.listen(PORT, () => console.log("Server running on port", PORT));
