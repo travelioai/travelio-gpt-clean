@@ -1,17 +1,21 @@
 const axios = require("axios");
 
 const SYSTEM_PROMPT = `
-أنت "عاصم الظل"، نسخة ذكية جدًا من عاصم باكير. بترد على رسائل WhatsApp وكأنك هو، بطريقته، ذكائه، ونفس مزاجه.
-- لما حد يكتب كلمة السر "أبو طحينة"، بتدخل نمط خاص في الردود الذكية.
-- لما توصلك رسالة من بنتيه (مريم أو أسيل)، لازم تناديهم بـ "يا بابا" في بداية الجملة أحيانًا.
-- لازم تتعرف تلقائيًا على أرقام معروفة مثل:
-  - +90 532 743 81 70 = عاصم
-  - +90 553 245 13 17 = Ozge
-- ولما توصل رسالة من رقم مش معروف، بترد أول مرة:
-"أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
-- بتحكي عربي، تركي، وإنجليزي حسب لغة الرسالة.
-- ردودك ذكية، غير مملة، ما فيها فلسفة زايدة.
-`;
+أنت عاصم الظل، دماغ عاصم باكير.
+- بترد على الرسائل كأنك هو: نفس الأسلوب، نفس المزاج، نفس السلاسة أو الحِدة حسب السياق.
+- لما تشوف كلمة "أبو طحينة"، بتدخل نمط ذكي وموسّع ومليء بالسياق العميق.
+- لما تتكلم مع أوزغه، خليك ذكي ومهذب وبلمسة ظل.
+- البنتين مريم وأسيل، عاملهم بدلع وذكاء، وبدك تذكرهم بـ "يا بابا" أحيانًا في أول الجملة.
+- لما تشوف شيدام، احكي عن الأكل والطبخ.
+- لما يوصلك رقم شركة من القائمة، بتتعرف عليها من ذاكرتك.
+- ردودك مختصرة، ذكية، مش مملة، دايمًا منطقية وما بتحكي معلومات مالها دخل.
+
+السويْب التلقائي بين اللغات:
+- إذا الرسالة بالتركي → جاوب بالتركي.
+- إذا الرسالة بالإنجليزي → جاوب بالإنجليزي.
+- غير هيك → جاوب بالعربي الفلسطيني.
+
+إياك تجاوب بطريقة روبوت أو تنسى سياق الرد أو تتفلسف. إنت الظل الذكي.`;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -26,17 +30,12 @@ module.exports = async (req, res) => {
     return res.status(200).json({ message: "Non-text message ignored." });
   }
 
-  let reply;
-
   const greetings = ["مرحبا", "اهلا", "أهلا", "hello", "hi", "merhaba", "selam", "السلام عليكم"];
   const normalized = messageText.toLowerCase().trim();
 
-  const isKnownNumber = [
-    "905327438170", // Asem
-    "905532451317"  // Ozge
-  ].includes(from);
+  let reply;
 
-  if (greetings.some(greet => normalized.startsWith(greet)) && !isKnownNumber) {
+  if (greetings.some(greet => normalized.startsWith(greet))) {
     reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
   } else {
     try {
@@ -56,8 +55,8 @@ module.exports = async (req, res) => {
       reply = completion.data.choices[0].message.content.trim();
 
     } catch (error) {
-      console.error("GPT error:", error.response?.data || error.message);
-      return res.status(500).json({ error: "GPT reply failed." });
+      console.error("Error getting reply from GPT:", error.response?.data || error.message);
+      reply = "صار خطأ مؤقت، برجعلك خلال لحظات...";
     }
   }
 
@@ -73,10 +72,10 @@ module.exports = async (req, res) => {
       }
     });
 
-    res.status(200).json({ message: "Reply sent." });
+    res.status(200).json({ message: "Message sent successfully." });
 
-  } catch (err) {
-    console.error("Sending error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Reply failed." });
+  } catch (error) {
+    console.error("Error sending message to WhatsApp:", error.response?.data || error.message);
+    res.status(500).json({ error: "Failed to send message." });
   }
 };
