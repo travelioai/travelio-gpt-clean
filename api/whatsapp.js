@@ -1,7 +1,8 @@
-const express = require("express");
+import express from 'express';
 const router = express.Router();
 const fetch = require("node-fetch");
-require("dotenv").config();
+import dotenv from 'dotenv';
+dotenv.config();
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
