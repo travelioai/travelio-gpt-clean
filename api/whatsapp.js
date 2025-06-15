@@ -12,14 +12,12 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const AI_API_URL = "https://api.openai.com/v1/chat/completions";
 const AI_API_KEY = process.env.AI_API_KEY;
 
-const SYSTEM_PROMPT = `
-أنت عاصم الظل، مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
+const SYSTEM_PROMPT = `أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
 - ردودك لازم تكون قصيرة وذكية.
 - استخدم لهجة فلسطينية طبيعية، وابتعد عن الأسلوب الفصيح أو المصري.
 - إذا تم استخدام كلمة السر "أبو طحينة"، فعّل النمط الخاص.
 - لا تطيل الرد، ولا تدخل بسرد طويل أو ممل.
-- أظهر شخصية فيها هيبة وخفة دم في آنٍ واحد.
-`;
+- أظهر شخصية فيها هيبة وخفة دم في آنٍ واحد.`;
 
 app.post("/webhook", async (req, res) => {
   const message = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
@@ -56,7 +54,7 @@ if (userMessage.includes("أبو طحينة")) {
     }, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: \`Bearer \${AI_API_KEY}\`
+        Authorization: "Bearer " + AI_API_KEY
       }
     });
 
