@@ -60,7 +60,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    await axios.post(\`https://graph.facebook.com/v19.0/\${process.env.PHONE_NUMBER_ID}/messages\`, {
+    await axios.post(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
       messaging_product: "whatsapp",
       to: from,
       text: { body: reply }
