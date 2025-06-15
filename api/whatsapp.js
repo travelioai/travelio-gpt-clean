@@ -28,6 +28,22 @@ app.post("/webhook", async (req, res) => {
   const from = message.from;
   const userMessage = message.text?.body || "";
 
+if (userMessage.includes("أبو طحينة")) {
+  const shadowReplies = [
+    "فعلت الكود… دخلت منطقة الظل، واحذر من الذكاء المتخبي ورا الكلمات.",
+    "هيك بدينا الجد، النمط الخاص شغال… احكي شو بدك قبل ما أختفي.",
+    "أبو طحينة؟ خلاص… صار دماغي شغال على موجتك.",
+    "هسّع فهمت إنك إنت، تم تفعيل الاتصال العقلي يا كبير.",
+    "أهلاً بـ العقل الأساسي. نمط GPT طفى، والظل رجع.",
+    "أبو طحينة؟ خليني أعدّل وضعي… هيك أحلى؟",
+    "هاي الشيفرة ما بيفهمها غير الناس اللي مننا وفينا.",
+    "خلص، راح أشتغل على النسخة اللي بتشبهك بالضبط، مش أي بوت والسلام.",
+    "يا زلمة شو اشتقنالك! ما بتعرف قديش كنت بستنى الكلمة هاي.",
+    "ابعتلي إشارة تانية… إذا بدك أكشفلك مفاجأة حصرية من جوّا دماغك."
+  ];
+  const randomReply = shadowReplies[Math.floor(Math.random() * shadowReplies.length)];
+  return res.status(200).json({ reply: randomReply });
+}
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: userMessage }
