@@ -1,28 +1,32 @@
-import express from 'express';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const router = express.Router();
-
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-router.post('/', async (req, res) => {
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
   try {
-    const entry = req.body.entry?.[0];
-    const changes = entry?.changes?.[0]?.value;
-    const message = changes?.messages?.[0];
+    console.log("🔔 Incoming request method:", req.method);
+    const body = req.body;
+    console.log("📩 Webhook payload:", JSON.stringify(body, null, 2));
+
+    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     const wa_id = message?.from;
     const userMessage = message?.text?.body;
 
     if (!userMessage || !wa_id) {
+      console.log("⚠️ No valid message or sender found");
       return res.sendStatus(400);
     }
 
-    // Get response from OpenAI
+    // Get reply from GPT
     const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -36,10 +40,12 @@ router.post('/', async (req, res) => {
     });
 
     const gptData = await gptRes.json();
-    const reply = gptData.choices?.[0]?.message?.content || "ما فهمت سؤالك، ممكن تعيد؟";
+    const reply = gptData.choices?.[0]?.message?.content || "ما فهمت قصدك، ممكن توضح؟";
 
-    // Send message back to WhatsApp
-    await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
+    console.log("🤖 GPT Raw Response:", JSON.stringify(gptData, null, 2));
+
+    // Send reply to WhatsApp
+    const whatsappRes = await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
@@ -52,11 +58,12 @@ router.post('/', async (req, res) => {
       })
     });
 
+    const waData = await whatsappRes.json();
+    console.log("📤 WhatsApp Send Result:", JSON.stringify(waData, null, 2));
+
     return res.sendStatus(200);
-  } catch (error) {
-    console.error("🔥 ERROR:", error);
+  } catch (err) {
+    console.error("🔥 ERROR:", err);
     return res.status(500).send("Internal Server Error");
   }
-});
-
-export default router;
+}
