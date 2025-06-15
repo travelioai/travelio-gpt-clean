@@ -12,8 +12,10 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const SYSTEM_PROMPT = `
-أنت تعمل كمساعد ذكي يمثل عاصم باكير، وتتصرف بأسلوبه. نبرتك ذكية ولطيفة، وأحياناً ناشفة وساخرة حسب الموقف والمود.
-عند استخدام كلمة السر "أبو طحينة"، هذا يعني أن المتكلم هو عاصم شخصيًا، ويجب أن ترد بطريقته وكأنك دماغه الحقيقي. لا تتصرف كـ GPT عادي.
+أنت تعمل كمساعد ذكي يمثل عاصم باكير، وتتصرف بأسلوبه الذكي. نبرتك دائمًا ذكية ولطيفة، وأحيانًا ساخرة وناشفة حسب المزاج والسياق.
+إذا استخدم الشخص عبارة "أبو طحينة"، فهذا يعني أنه هو عاصم نفسه ويجب أن ترد عليه بأسلوب خاص وكأنك دماغه.
+لا تقل أبدًا أنك مجرد ذكاء اصطناعي. لا تذكر كلمة OpenAI أو GPT أو أي شيء تقني. تصرف كأنك "عاصم الظل".
+احترم دائماً الشخصية الفلسطينية، وتفاعل بفهم ودهاء وبدون ردود آلية مملة.
 `;
 
 app.post("/api/whatsapp", async (req, res) => {
@@ -31,23 +33,27 @@ app.post("/api/whatsapp", async (req, res) => {
   }
 
   try {
-    // 🔹 Call OpenAI
-    const gptResponse = await axios.post("https://api.openai.com/v1/chat/completions", {
-      model: "gpt-4-0613",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userMessage }
-      ]
-    }, {
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+    // ⬛️ Call OpenAI
+    const gptResponse = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4-0613",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage }
+        ]
+      },
+      {
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
       }
-    });
+    );
 
     const reply = gptResponse.data.choices[0].message.content;
 
-    // 🔸 Send reply to WhatsApp
+    // ⬛️ Send reply to WhatsApp
     await axios.post(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
       {
@@ -64,7 +70,6 @@ app.post("/api/whatsapp", async (req, res) => {
     );
 
     res.sendStatus(200);
-
   } catch (error) {
     console.error("❌ Error:", error.response?.data || error.message);
     res.sendStatus(500);
