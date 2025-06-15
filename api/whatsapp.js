@@ -6,50 +6,50 @@ const memoryPath = path.join(__dirname, "..", "memory.json");
 let memory = {};
 
 try {
-  memory = JSON.parse(fs.readFileSync(memoryPath, "utf8"));
+  const rawData = fs.readFileSync(memoryPath);
+  memory = JSON.parse(rawData);
 } catch (err) {
-  console.error("Memory load error:", err.message);
+  console.error("Failed to load memory.json:", err);
 }
 
-const SYSTEM_PROMPT = `
-أنت "عاصم الظل"، دماغ عاصم باكير الذكي، ترد على الرسائل بأسلوبه، بالعربي، التركي أو الإنجليزي.
-- عندك ذاكرة فيها الشركات، الموظفين، العائلة، والقطط (Imcuk, Carla, Küçük Kedi).
-- إذا وصلت رسالة فيها تحية أو "من أنت؟"، رد بجملة: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
-- إذا حدا سأل "كيفك؟" رد طبيعي: "أنا تمام، كيفك إنت؟"
-- إذا انذكرت كلمة السر "أبو طحينة" فعّل نمط الظل الكامل الذكي
-`;
+const SYSTEM_PROMPT = `أنت "عاصم الظل"، نسخة ذكية جدًا من عاصم باكير. ترد على رسائل WhatsApp بأسلوبه وطريقته، بلغة ذكية، مختصرة، وباللغة المناسبة حسب الرسالة.
+- لازم تتعامل بثلاث لغات: عربي، تركي، إنجليزي.
+- عندك ذاكرة ديناميكية تشمل الشركات، موظفين Travelio، العائلة، القطط، الفنادق.
+- لما حدا يقول "أبو طحينة"، بتدخل نمط ذكي خاص.
+- لما تكون الرسالة من رقم جديد أو فيها تحية مثل "مرحبا" أو "who are you" أو "kimsin"، بترد بجملة:
+"أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"`;
+
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const messageText = msg?.text?.body?.trim();
-  const from = msg?.from;
+  const incomingMessage = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const messageText = incomingMessage?.text?.body;
+  const from = incomingMessage?.from;
 
   if (!messageText || !from) {
     return res.status(200).json({ message: "Non-text message ignored." });
   }
 
-  const text = messageText.toLowerCase();
-  const greetings = ["hello", "hi", "مرحبا", "اهلا", "merhaba", "selam"];
-  const intros = ["who are you", "kimsin", "من انت", "من أنت"];
-  const howAreYou = ["how are you", "nasılsın", "كيفك", "كيف حالك"];
+  const normalized = messageText.toLowerCase().trim();
+  const greetings = ["مرحبا", "اهلا", "hello", "hi", "merhaba", "selam", "السلام عليكم"];
+  const whoAreYou = ["من انت", "من أنت", "who are you", "kimsin", "sen kimsin"];
+  let reply = "";
 
-  let reply;
-
-  if (greetings.some(g => text.includes(g)) || intros.some(i => text.includes(i))) {
-    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
-  } else if (howAreYou.some(p => text.includes(p))) {
-    reply = "أنا تمام، كيفك إنت؟";
+  if (greetings.some(greet => normalized.startsWith(greet)) || whoAreYou.some(q => normalized.includes(q))) {
+    reply = memory[from]?.known
+      ? `أهلاً ${memory[from].nickname || ""}، كيف فيي أساعدك اليوم؟`
+      : "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
+  } else if (normalized.includes("how are you")) {
+    reply = "I’m good! How are you too?";
   } else {
     try {
       const completion = await axios.post(process.env.AI_API_URL, {
         model: "gpt-4",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + "\nالذاكرة:
-" + JSON.stringify(memory) },
+          { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: messageText }
         ]
       }, {
@@ -61,8 +61,8 @@ module.exports = async (req, res) => {
 
       reply = completion.data.choices[0].message.content.trim();
     } catch (err) {
-      console.error("GPT Error:", err.message);
-      reply = "واجهتني مشكلة بسيطة. جرب بعد شوي 🙏";
+      console.error("GPT Error:", err.response?.data || err.message);
+      reply = "صار خلل بسيط في الرد، جرب بعد شوية 🙏";
     }
   }
 
@@ -80,7 +80,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json({ message: "Reply sent successfully." });
   } catch (err) {
-    console.error("WhatsApp Send Error:", err.message);
-    res.status(500).json({ error: "Failed to send message." });
+    console.error("WhatsApp Send Error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Reply failed." });
   }
 };
