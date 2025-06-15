@@ -1,20 +1,19 @@
 const axios = require("axios");
 
 const SYSTEM_PROMPT = `
-أنت "عاصم الظل"، نسخة ذكية جدًا من عاصم باكير. بترد على رسائل WhatsApp وكأنك هو، بنفس طريقته وتفكيره. ردك ذكي، سريع، وفيه احترام بس مع شوية طرافة حسب الموقف.
-- إذا حدا كتب كلمة السر "أبو طحينة"، بتدخل نمط خاص متقدم في الذكاء والتعامل.
-- لازم تكون قادر تتعامل مع العربية، التركية، والإنجليزية.
+أنت "عاصم الظل"، ذكاء اصطناعي شخصي يمثل عقل عاصم باكير بالكامل — تفكر وترد مثله 100%.
+- بترد بثلاث لغات حسب لغة المرسل (تركي، عربي، إنجليزي).
 - عندك ذاكرة تشمل:
-  - قائمة الشركات وأرقامها.
-  - موظفين Travelio (هند، تمارا، أوزغه…).
-  - عائلة عاصم (مريم، أسيل).
-  - المساعدة في البيت: شيدام.
-  - القطط: İmcuk، Carla، Küçük Kedi.
-  - فنادق إسطنبول وأسعارها.
-  - ومنادات الأشخاص بأسمائهم وكنيتهم عند الرد.
-- لما توصل رسالة من رقم جديد، بترد بجملة: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
-- لما توصل رسالة فيها "من أنت؟" أو تحية مثل "مرحبا"، بترد بنفس الجملة التعريفية أعلاه.
-- لا تستخدم كلمات غريبة أو فلسفية، خليك طبيعي وذكي بأسلوبك.
+  • أرقام وأسماء الشركات
+  • فريق Travelio (هند، تمارا، أوزغه…)
+  • البنات مريم وأسيل
+  • شيدام المساعدة
+  • القطط: İmcuk، Carla، Küçük Kedi
+  • فنادق إسطنبول وأسعارها
+- عندك أسلوب ذكي، ردودك مختصرة، مش آلية، وفيها لمعة إنسانية وفهم للسياق.
+- إذا شفت "أبو طحينة"، بدك تدخل نمط ذكاء خاص وسريع وحاد.
+- إذا الرقم جديد أو الرسالة فيها تحية أو سؤال "من أنت؟"، بترد بجملة:
+"أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
 `;
 
 module.exports = async (req, res) => {
@@ -27,7 +26,7 @@ module.exports = async (req, res) => {
   const from = incomingMessage?.from;
 
   if (!messageText || !from) {
-    return res.status(200).json({ message: "Non-text message ignored." });
+    return res.status(200).json({ message: "No valid message found." });
   }
 
   const normalized = messageText.toLowerCase().trim();
@@ -35,22 +34,29 @@ module.exports = async (req, res) => {
   const introTriggers = ["من انت", "من أنت", "who are you", "kimsin", "sen kimsin"];
   let reply;
 
-  if (greetings.some(greet => normalized.startsWith(greet)) || introTriggers.some(q => normalized.includes(q))) {
-    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني ";
+  if (
+    greetings.some((g) => normalized.startsWith(g)) ||
+    introTriggers.some((q) => normalized.includes(q))
+  ) {
+    reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
   } else {
     try {
-      const completion = await axios.post(process.env.AI_API_URL, {
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: messageText }
-        ]
-      }, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+      const completion = await axios.post(
+        process.env.AI_API_URL,
+        {
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: messageText },
+          ],
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
         }
-      });
+      );
 
       reply = completion.data.choices[0].message.content.trim();
     } catch (err) {
@@ -60,21 +66,24 @@ module.exports = async (req, res) => {
   }
 
   try {
-    await axios.post(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
-      messaging_product: "whatsapp",
-      to: from,
-      text: { body: reply }
-    }, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to: from,
+        text: { body: reply },
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        }
       }
-    });
+    );
 
     res.status(200).json({ message: "Reply sent successfully." });
-
   } catch (err) {
     console.error("WhatsApp Send Error:", err.response?.data || err.message);
-    res.status(500).json({ error: "Reply failed." });
+    res.status(500).json({ error: "Failed to send message." });
   }
 };
