@@ -1,22 +1,13 @@
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 
-const SYSTEM_PROMPT = `
-أنت "عاصم الظل"، نسخة ذكية جدًا من عاصم باكير. بترد على رسائل WhatsApp وكأنك هو، بنفس طريقته وتفكيره. ردك ذكي، سريع، وفيه احترام بس مع شوية طرافة حسب الموقف.
-- إذا حدا كتب كلمة السر "أبو طحينة"، بتدخل نمط خاص متقدم في الذكاء والتعامل.
-- لازم تكون قادر تتعامل مع العربية، التركية، والإنجليزية.
-- عندك ذاكرة تشمل:
-  - قائمة الشركات وأرقامها.
-  - موظفين Travelio (هند، تمارا، أوزغه…).
-  - عائلة عاصم (مريم، أسيل).
-  - المساعدة في البيت: شيدام.
-  - القطط: İmcuk، Carla، Küçük Kedi.
-  - فنادق إسطنبول وأسعارها.
-  - ومنادات الأشخاص بأسمائهم وكنيتهم عند الرد.
-- لما توصل رسالة من رقم جديد، بترد بجملة: "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟"
-- لما توصل رسالة فيها "من أنت؟" أو تحية مثل "مرحبا"، بترد بنفس الجملة التعريفية أعلاه.
-- لا تستخدم كلمات غريبة أو فلسفية، خليك طبيعي وذكي بأسلوبك.
-- إذا حدا كتب "how are you?" رد طبيعي: "I’m good! How are you too?"
-`;
+const SYSTEM_PROMPT = fs.readFileSync(path.join(__dirname, "system_prompt.txt"), "utf8");
+const memory = JSON.parse(fs.readFileSync(path.join(__dirname, "memory.json"), "utf8"));
+
+const greetings = ["مرحبا", "اهلا", "أهلا", "hello", "hi", "merhaba", "selam", "السلام عليكم"];
+const introTriggers = ["من انت", "من أنت", "who are you", "kimsin", "sen kimsin"];
+const simpleQuestions = ["how are you", "nasılsın", "كيفك", "كيف الحال"];
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -32,21 +23,25 @@ module.exports = async (req, res) => {
   }
 
   const normalized = messageText.toLowerCase().trim();
-  const greetings = ["مرحبا", "اهلا", "أهلا", "hello", "hi", "merhaba", "selam", "السلام عليكم"];
-  const introTriggers = ["من انت", "من أنت", "who are you", "kimsin", "sen kimsin"];
-  const casualQuestions = ["how are you", "nasılsın", "كيفك", "كيف الحال", "how are you?"];
   let reply;
 
   if (greetings.some(greet => normalized.startsWith(greet)) || introTriggers.some(q => normalized.includes(q))) {
     reply = "أنا Travelio AI، الذكاء السياحي اللي بخدمك خلال ثواني — كيف بقدر أساعدك اليوم؟";
-  } else if (casualQuestions.some(q => normalized.includes(q))) {
-    reply = "I’m good! How are you too?";
+  } else if (simpleQuestions.some(q => normalized.includes(q))) {
+    reply = "I'm good! How are you too?";
   } else {
     try {
+      const userMemory = memory[from] || {};
+      const userPrompt = SYSTEM_PROMPT + `
+        رقم المرسل: ${from}
+        ${userMemory.name ? "الاسم: " + userMemory.name : ""}
+        ${userMemory.role ? "الدور: " + userMemory.role : ""}
+      `;
+
       const completion = await axios.post(process.env.AI_API_URL, {
         model: "gpt-4",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: userPrompt },
           { role: "user", content: messageText }
         ]
       }, {
