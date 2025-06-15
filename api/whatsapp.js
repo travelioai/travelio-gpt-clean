@@ -27,7 +27,7 @@ app.post("/api/whatsapp", async (req, res) => {
   const from = message?.from;
   const userMessage = message?.text?.body;
 
-  if (!userMessage) return res.sendStatus(400);
+  if (!userMessage) return res.status(400).send("Missing user message or wa_id");
 
   try {
     // Call GPT
