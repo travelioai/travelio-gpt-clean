@@ -33,7 +33,6 @@ app.post("/api/whatsapp", async (req, res) => {
   }
 
   try {
-    // ⬛️ Call OpenAI
     const gptResponse = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -45,7 +44,7 @@ app.post("/api/whatsapp", async (req, res) => {
       },
       {
         headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         }
       }
@@ -53,7 +52,6 @@ app.post("/api/whatsapp", async (req, res) => {
 
     const reply = gptResponse.data.choices[0].message.content;
 
-    // ⬛️ Send reply to WhatsApp
     await axios.post(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
       {
@@ -76,6 +74,4 @@ app.post("/api/whatsapp", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
-});
+module.exports = app;
