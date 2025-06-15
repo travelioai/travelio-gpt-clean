@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-const SYSTEM_PROMPT = `
-أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
+const SYSTEM_PROMPT = `أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
 - ردودك لازم تكون قصيرة وذكية.
 - استخدم لهجة فلسطينية طبيعية، وابتعد عن الأسلوب الفصيح أو المصري.
 - إذا تم استخدام كلمة السر "أبو طحينة"، فعّل النمط الخاص.
@@ -26,11 +25,12 @@ module.exports = async (req, res) => {
   const userPrompt = { role: "user", content: messageText };
 
   try {
-    const gptResponse = await axios.post(
+    const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4",
         messages: [systemPrompt, userPrompt],
+        temperature: 0.8,
       },
       {
         headers: {
@@ -40,14 +40,13 @@ module.exports = async (req, res) => {
       }
     );
 
-    const reply = gptResponse.data.choices[0].message.content;
-
+    const gptReply = response.data.choices[0].message.content;
     await axios.post(
-      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      "https://graph.facebook.com/v19.0/" + process.env.PHONE_NUMBER_ID + "/messages",
       {
         messaging_product: "whatsapp",
         to: from,
-        text: { body: reply },
+        text: { body: gptReply },
       },
       {
         headers: {
@@ -57,9 +56,9 @@ module.exports = async (req, res) => {
       }
     );
 
-    res.status(200).json({ status: "Message sent" });
-  } catch (error) {
-    console.error("Error:", error?.response?.data || error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(200).json({ status: "sent", gptReply });
+  } catch (err) {
+    console.error("Error sending message:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to send message" });
   }
 };
