@@ -19,29 +19,20 @@ const SYSTEM_PROMPT = `
 `;
 
 app.post("/api/whatsapp", async (req, res) => {
-  console.log("🔥 Webhook payload:", JSON.stringify(req.body, null, 2));
+  console.log("Incoming request method:", req.method);
 
   const entry = req.body.entry?.[0];
   const changes = entry?.changes?.[0];
   const message = changes?.value?.messages?.[0];
-
-  // تجاهل الرسائل غير النصية (مثل الصور، الفيديو، الستكرات...)
-  if (message?.type !== "text") {
-    console.log("🚫 Non-text message ignored.");
-    return res.sendStatus(200);
-  }
-
   const phoneNumberId = changes?.value?.metadata?.phone_number_id;
   const wa_id = message?.from;
   const userMessage = message?.text?.body;
 
   if (!userMessage || !wa_id) {
-    console.log("⚠️ Missing user message or wa_id");
     return res.status(400).send("Missing user message or wa_id");
   }
 
   try {
-    // ⬛️ إرسال الرسالة إلى OpenAI
     const gptResponse = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -53,7 +44,7 @@ app.post("/api/whatsapp", async (req, res) => {
       },
       {
         headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         }
       }
@@ -61,9 +52,8 @@ app.post("/api/whatsapp", async (req, res) => {
 
     const reply = gptResponse.data.choices[0].message.content;
 
-    // ⬛️ إرسال الرد إلى واتساب
     await axios.post(
-      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
+      `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
       {
         messaging_product: "whatsapp",
         to: wa_id,
