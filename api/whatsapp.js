@@ -1,7 +1,6 @@
 const axios = require("axios");
 
-const SYSTEM_PROMPT = `
-أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
+const SYSTEM_PROMPT = `أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
 - ردودك لازم تكون قصيرة وذكية.
 - استخدم لهجة فلسطينية طبيعية، وابتعد عن الأسلوب الفصيح أو المصري.
 - إذا تم استخدام كلمة السر "أبو طحينة"، فعّل النمط الخاص.
@@ -15,7 +14,7 @@ module.exports = async (req, res) => {
   }
 
   const incomingMessage = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const messageText = incomingMessage?.text?.body || "";
+  const messageText = incomingMessage?.text?.body;
   const from = incomingMessage?.from;
 
   if (!messageText || !from) {
@@ -39,9 +38,22 @@ module.exports = async (req, res) => {
     });
 
     const reply = completion.data.choices[0].message.content.trim();
-    return res.status(200).json({ reply });
+
+    await axios.post(`https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`, {
+      messaging_product: "whatsapp",
+      to: from,
+      text: { body: reply },
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`
+      }
+    });
+
+    res.status(200).json({ message: "Message sent successfully." });
+
   } catch (error) {
-    console.error("🔥 Error:", error?.response?.data || error.message);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error processing message:", error.response?.data || error.message);
+    res.status(500).json({ error: "Something went wrong." });
   }
 };
