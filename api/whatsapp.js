@@ -13,39 +13,46 @@ const SYSTEM_PROMPT = `أنت عاصم الظل. مهمتك تكون نسخة ذ
 - استخدم لهجة فلسطينية طبيعية، وابتعد عن الأسلوب الفصيح أو المصري.
 - إذا تم استخدام كلمة السر "أبو طحينة"، فعّل النمط الخاص.
 - لا تطيل الرد، ولا تدخل بسرد طويل أو ممل.
-- أظهر شخصية فيها هيبة وخفة دم في آنٍ واحد.`;
+- أظهر شخصية فيها هيبة وخفة دم في آنٍ واحد.
+`;
 
 app.post("/api/whatsapp", async (req, res) => {
-    try {
-        const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-        const text = message?.text?.body;
+    console.log("Incoming request method:", req.method);
 
-        if (!text) {
-            return res.sendStatus(200);
+    try {
+        const incomingMessage = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
+
+        if (!incomingMessage) {
+            return res.status(200).send("No message found");
         }
 
-        const gptResponse = await axios.post("https://api.openai.com/v1/chat/completions", {
-            model: "gpt-4",
-            messages: [
-                { role: "system", content: SYSTEM_PROMPT },
-                { role: "user", content: text }
-            ]
-        }, {
-            headers: {
-               "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-                "Content-Type": "application/json"
+        const openaiRes = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+                model: "gpt-4",
+                messages: [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    { role: "user", content: incomingMessage }
+                ]
+            },
+            {
+                headers: {
+                    "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+                    "Content-Type": "application/json"
+                }
             }
-        });
+        );
 
-        const reply = gptResponse.data.choices[0].message.content;
-        console.log("GPT Reply:", reply);
-        res.sendStatus(200);
-    } catch (error) {
-        console.error("Error:", error.message);
-        res.sendStatus(500);
+        const reply = openaiRes.data.choices?.[0]?.message?.content;
+
+        console.log("Reply:", reply);
+        res.status(200).send("Message processed");
+    } catch (err) {
+        console.error("Error:", err.message);
+        res.status(500).send("Server error");
     }
 });
 
 app.listen(PORT, () => {
-    console.log(\`Server is running on port \${PORT}\`);
+    console.log(`Server is running on port ${PORT}`);
 });
