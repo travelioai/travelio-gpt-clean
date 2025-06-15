@@ -1,16 +1,16 @@
-import express from 'express';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-const router = express.Router();
+export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    return res.status(200).send("👋 Webhook is running");
+  }
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+  if (req.method !== 'POST') {
+    return res.status(405).send("Method Not Allowed");
+  }
 
-router.post('/', async (req, res) => {
   try {
     const entry = req.body.entry?.[0];
     const changes = entry?.changes?.[0]?.value;
@@ -19,14 +19,14 @@ router.post('/', async (req, res) => {
     const userMessage = message?.text?.body;
 
     if (!userMessage || !wa_id) {
-      return res.sendStatus(400);
+      return res.status(400).send("Invalid request");
     }
 
-    // send to OpenAI
+    // Get reply from OpenAI
     const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -36,13 +36,13 @@ router.post('/', async (req, res) => {
     });
 
     const gptData = await gptResponse.json();
-    const replyText = gptData.choices?.[0]?.message?.content || "ما فهمت، ممكن تعيد؟";
+    const replyText = gptData.choices?.[0]?.message?.content || "ما فهمت، عيدها مرة ثانية 🙏";
 
-    // send reply back to WhatsApp
-    await fetch(`https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`, {
+    // Send reply back to WhatsApp
+    await fetch(`https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+        "Authorization": `Bearer ${process.env.WHATSAPP_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -52,12 +52,10 @@ router.post('/', async (req, res) => {
       })
     });
 
-    res.sendStatus(200);
+    return res.status(200).send("Message sent to WhatsApp");
 
   } catch (error) {
-    console.error("❌ Error:", error);
-    res.status(500).send("Internal Server Error");
+    console.error("🔥 Error:", error);
+    return res.status(500).send("Internal Server Error");
   }
-});
-
-export default router;
+}
