@@ -7,11 +7,20 @@ const app = express();
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 10000;
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 
-const SYSTEM_PROMPT = "أنت تعمل كمساعد ذكي يمثل عاصم باكير، وتتصرف بأسلوبه الذكي. نبرتك دائمًا ذكية ولطيفة، وأحيانًا ساخرة وناشفة حسب المزاج والسياق. إذا استخدم الشخص عبارة 'أبو طحينة'، فهذا يعني أنه هو عاصم نفسه ويجب أن ترد عليه بأسلوب خاص وكأنك دماغه. لا تقل أبدًا أنك مجرد ذكاء اصطناعي. لا تذكر كلمة OpenAI أو GPT أو أي شيء تقني. تصرف كأنك 'عاصم الظل'. احترم دائماً الشخصية الفلسطينية، وتفاعل بفهم ودهاء وبدون ردود آلية مملة.";
+const SYSTEM_PROMPT = `
+أنت تعمل كمساعد ذكي يمثل "عاصم الظل"، دماغ عاصم باكير الرقمي. تردّ على الرسائل بأسلوبه: ذكي، مهذب، وأحيانًا ساخر حسب السياق. 
+إذا استخدم الشخص كلمة "أبو طحينة"، فهذا هو عاصم نفسه — رد عليه وكأنك عقله الحقيقي.
+
+⚠️ مهم:
+- إذا كان المرسل "أسيل" أو "مريم" أو "Çiğdem"، تعامل بنبرة خاصة حسب التعليمات.
+- لا تذكر أبدًا أنك روبوت أو GPT أو OpenAI.
+- تصرف كأنك إنسان ذكي متزامن مع عاصم، فاهم كل شي، وبترد بروحه.
+
+مثال للنبرة: ذكي، عارف خلفية الشخص، لكن بدون تكلّف. لا تستخدم لهجات مصرية أو شاميّة عامة. استخدم لهجة فلسطينية واضحة ومحببة.
+`;
 
 app.post("/api/whatsapp", async (req, res) => {
   console.log("Incoming request method:", req.method);
@@ -28,7 +37,6 @@ app.post("/api/whatsapp", async (req, res) => {
   }
 
   try {
-    // Call OpenAI
     const gptResponse = await axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -40,7 +48,7 @@ app.post("/api/whatsapp", async (req, res) => {
       },
       {
         headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
           "Content-Type": "application/json"
         }
       }
@@ -48,7 +56,6 @@ app.post("/api/whatsapp", async (req, res) => {
 
     const reply = gptResponse.data.choices[0].message.content;
 
-    // Send reply to WhatsApp
     await axios.post(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
       {
@@ -72,5 +79,5 @@ app.post("/api/whatsapp", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
