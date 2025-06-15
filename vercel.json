@@ -3,7 +3,7 @@
   "routes": [
     {
       "src": "/api/whatsapp",
-      "dest": "api/whatsapp.js"
+      "dest": "api/whatsapp.cjs"
     }
   ]
 }
