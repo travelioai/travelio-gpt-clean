@@ -12,7 +12,7 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const AI_API_URL = "https://api.openai.com/v1/chat/completions";
 const AI_API_KEY = process.env.AI_API_KEY;
 
-const SYSTEM_PROMPT = \`
+const SYSTEM_PROMPT = `
 أنت عاصم الظل. مهمتك تكون نسخة ذكية، فلسطينية، لبقة، وسريعة من عاصم باكير.
 - ردودك لازم تكون قصيرة وذكية.
 - استخدم لهجة فلسطينية طبيعية، وابتعد عن الأسلوب الفصيح أو المصري.
