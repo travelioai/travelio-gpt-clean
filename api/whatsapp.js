@@ -34,7 +34,7 @@ if (known) {
 reply = known ? `Hi ${name}, how can I help you today?` : 'Hello! How can I assist you?';
 
   } else if (lang === "english") {
-    reply = known ? \`Hi \${name}, how can I help you today?\` : "Hello! How can I assist you?";
+    reply = known ? `Hi ${name}, how can I help you today?` : 'Hello! How can I assist you?';
   } else {
     reply = known ? \`Merhaba \${name}, size nasıl yardımcı olabilirim?\` : "Merhaba! Size nasıl yardımcı olabilirim?";
   }
