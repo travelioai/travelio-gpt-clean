@@ -2,16 +2,16 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-const memoryPath = path.join(__dirname, "memory.json");
-const memory = JSON.parse(fs.readFileSync(memoryPath, "utf-8"));
+const memory = JSON.parse(fs.readFileSync(path.join(__dirname, "memory.json"), "utf-8"));
 
-const SYSTEM_PROMPT = `
-أنت Travelio AI، ذكاء سياحي راقٍ.
-- لا تكشف عن معلومات حساسة أو شخصية لأي شخص.
-- لا تعطي تفاصيل عن عاصم باكير إلا إذا استخدمت كلمة السر "أبو طحينة".
-- ردودك ذكية، موجزة، وتتبدل حسب لغة المستخدم (عربي، تركي، إنجليزي).
-- انتبه للسياق دائماً، واذكر فقط ما هو مناسب.
-`;
+const SYSTEM_PROMPT = \`
+أنت Travelio AI، ذكاء سياحي ذكي سريع بيجاوب حسب لغة المستخدم وبيتعامل حسب علاقته معه.
+لو الشخص معروف بالذاكرة، احكي معه بشكل شخصي حسب علاقته.
+لو مش معروف، احكي بشكل رسمي ولطيف.
+
+تجاوب دايمًا بجملة مختصرة وواضحة.
+ما تعيد نفس الكلام، وما تبين إنك روبوت.
+\`;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -19,25 +19,28 @@ module.exports = async (req, res) => {
   }
 
   const incomingMessage = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  const messageText = incomingMessage?.text?.body;
   const from = incomingMessage?.from;
+  const text = incomingMessage?.text?.body;
 
-  if (!messageText || !from) {
-    return res.status(200).send("No message content.");
+  if (!text) {
+    return res.sendStatus(200);
   }
 
-  let reply = "I'm here to assist you.";
+  const lang = /[أ-ي]/.test(text) ? "arabic" : /[a-zA-Z]/.test(text) ? "english" : "turkish";
+  const name = memory[from]?.name || "ضيف";
+  const known = !!memory[from];
 
-  if (messageText.toLowerCase().includes("how are you")) {
-    reply = "I'm good! How are you too?";
-  } else if (["من انت", "who are you", "kimsin"].some(q => messageText.toLowerCase().includes(q))) {
-    reply = "أنا Travelio AI، مساعدك السياحي الذكي. كيف بقدر أساعدك؟";
-  } else if (messageText.includes("أبو طحينة")) {
-    reply = "أهلاً فيك... عاصم الظل جاهز، كيف فيني أخدمك اليوم؟";
+  let reply = "";
+  if (lang === "arabic") {
+    reply = known ? \`أهلًا \${name}، كيف بقدر أساعدك اليوم؟\` : "مرحباً، كيف بقدر أساعدك؟";
+  } else if (lang === "english") {
+    reply = known ? \`Hi \${name}, how can I help you today?\` : "Hello! How can I assist you?";
+  } else {
+    reply = known ? \`Merhaba \${name}, size nasıl yardımcı olabilirim?\` : "Merhaba! Size nasıl yardımcı olabilirim?";
   }
 
   await axios.post(
-    `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+    "https://graph.facebook.com/v19.0/" + process.env.PHONE_NUMBER_ID + "/messages",
     {
       messaging_product: "whatsapp",
       to: from,
@@ -45,12 +48,10 @@ module.exports = async (req, res) => {
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
+        Authorization: "Bearer " + process.env.WHATSAPP_TOKEN,
       },
     }
   );
 
-  res.send("Done");
+  res.sendStatus(200);
 };
-

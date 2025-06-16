@@ -1,73 +1,14 @@
 {
-  "companies": [
-    {
-      "name": "Al Quds Travel",
-      "phone": "+970599123456",
-      "nickname": "أبو عمر"
-    },
-    {
-      "name": "Ramallah Tours",
-      "phone": "+970598654321",
-      "nickname": "أبو رامي"
-    }
-  ],
-  "team": {
-    "Ozge": {
-      "role": "General Manager",
-      "language": "tr",
-      "relationship": "شريكة"
-    },
-    "Tamara": {
-      "role": "Reservation Manager",
-      "language": "tr",
-      "relationship": "مديرة الحجوزات"
-    },
-    "Hind": {
-      "role": "Operations Manager",
-      "language": "ar",
-      "relationship": "مديرة العمليات"
-    }
+  "905302308170": {
+    "name": "Meryem",
+    "type": "daughter"
   },
-  "family": {
-    "Meryem": {
-      "age": 17.5,
-      "languages": [
-        "tr",
-        "en"
-      ],
-      "title": "يا بابا"
-    },
-    "Asil": {
-      "age": 15.5,
-      "languages": [
-        "tr",
-        "en"
-      ],
-      "title": "يا بابا"
-    }
+  "905303038170": {
+    "name": "Asil",
+    "type": "daughter"
   },
-  "home": {
-    "Çiğdem": {
-      "role": "مساعدة في المنزل",
-      "language": "tr",
-      "interests": [
-        "الطبخ"
-      ]
-    }
-  },
-  "cats": [
-    "İmcuk",
-    "Carla",
-    "Küçük Kedi"
-  ],
-  "hotels": {
-    "Crestium Taksim Prime": {
-      "location": "Taksim",
-      "price": 75
-    },
-    "Crestium Taksim Prive & Spa": {
-      "location": "Taksim",
-      "price": 80
-    }
+  "905416699043": {
+    "name": "Çiğdem",
+    "type": "family"
   }
 }
