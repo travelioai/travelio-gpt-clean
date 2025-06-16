@@ -1,13 +1,10 @@
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
 
-const memoryPath = path.join(__dirname, "memory.json");
-const memory = JSON.parse(fs.readFileSync(memoryPath, "utf8"));
+let lastMessages = new Map(); // لحفظ آخر رسالة لكل مستخدم مؤقتًا
 
 const SYSTEM_PROMPT = `
-أنت Travelio AI – ذكاء سياحي ذكي بيجاوب بطريقتي الفلسطينية.
-خليك دايمًا ذكي، دقيق، وسياقي، وبدون تكرار ممل.`;
+أنت Travelio AI، ذكاء سياحي ذكي بيجاوب بطريقة فلسطينية ذكية، نغمتك حيوية ومش مملة.
+`;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -15,35 +12,39 @@ module.exports = async (req, res) => {
   }
 
   const body = req.body;
-  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
   const from = message?.from;
   const messageText = message?.text?.body;
+  const messageId = message?.id;
 
-  if (!message || !from || !messageText) {
-    return res.end(); // تجاهل الرسائل الفارغة أو غير النصية
+  if (!messageText || !from) return res.end(); // حماية من الفراغ أو الأخطاء
+
+  // منع التكرار المؤقت داخل الجلسة
+  if (lastMessages.get(from) === messageId) return res.end();
+  lastMessages.set(from, messageId);
+
+  let reply = "أهلاً، كيف فيني أساعدك اليوم؟";
+
+  // تبديل ذكي حسب اللغة
+  if (messageText.match(/[a-zA-Z]/)) {
+    reply = "Hello! How can I assist you today?";
+  } else if (messageText.match(/[ğüşöçİıĞÜŞÖÇ]/i)) {
+    reply = "Merhaba! Size nasıl yardımcı olabilirim?";
   }
 
-  if (memory.lastMessage === message.id) {
-    return res.end(); // تجاهل التكرار
-  }
-
-  memory.lastMessage = message.id;
- let memory = { lastMessage: "" }; // بدون readFile
-
-  const reply = `أهلاً، كيف فيني أساعدك اليوم؟`;
-
+  // إرسال الرد
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
     {
       messaging_product: "whatsapp",
       to: from,
-      text: { body: reply },
+      text: { body: reply }
     },
     {
       headers: {
         Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
+        "Content-Type": "application/json"
+      }
     }
   );
 
