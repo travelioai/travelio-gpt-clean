@@ -1,9 +1,13 @@
 const axios = require("axios");
-let lastMessageId = null;
+const fs = require("fs");
+const path = require("path");
+
+const memoryPath = path.join(__dirname, "memory.json");
+const memory = JSON.parse(fs.readFileSync(memoryPath, "utf8"));
 
 const SYSTEM_PROMPT = `
-أنت Travelio AI – الذكاء السياحي. ردك دايمًا يكون ذكي، واضح، وسلس بدون تكرار أو مجاملات طويلة. إذا المستخدم قال "مرحبا" أو "صباح الخير"، رد عليه بشكل بشري سريع، وإذا سأل عن حجز، خليك مباشر وبلّش بجمع التفاصيل. لا تعيد نفس الجمل.
-`;
+أنت Travelio AI – ذكاء سياحي ذكي بيجاوب بطريقتي الفلسطينية.
+خليك دايمًا ذكي، دقيق، وسياقي، وبدون تكرار ممل.`;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -11,20 +15,22 @@ module.exports = async (req, res) => {
   }
 
   const body = req.body;
-  const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
   const from = message?.from;
   const messageText = message?.text?.body;
 
   if (!message || !from || !messageText) {
-    return res.end(); // رسائل ناقصة أو غير قابلة للمعالجة
+    return res.end(); // تجاهل الرسائل الفارغة أو غير النصية
   }
 
-  if (lastMessageId === message.id) {
+  if (memory.lastMessage === message.id) {
     return res.end(); // تجاهل التكرار
   }
-  lastMessageId = message.id;
 
-  const reply = `مرحبا، كيف فيني أساعدك اليوم؟`; // سيتم استبداله برد ديناميكي
+  memory.lastMessage = message.id;
+  fs.writeFileSync(memoryPath, JSON.stringify(memory));
+
+  const reply = `أهلاً، كيف فيني أساعدك اليوم؟`;
 
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
