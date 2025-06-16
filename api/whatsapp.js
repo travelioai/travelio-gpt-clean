@@ -29,7 +29,10 @@ module.exports = async (req, res) => {
 
   let reply = "";
   if (lang === "arabic") {
-    reply = known ? \`أهلًا \${name}، كيف بقدر أساعدك اليوم؟\` : "مرحباً، كيف بقدر أساعدك؟";
+    let reply = '';
+if (known) {
+  reply = `يعني يا معلم ${name}، بتسألني كيف مساعدتك بستنان؟`;
+}
   } else if (lang === "english") {
     reply = known ? \`Hi \${name}, how can I help you today?\` : "Hello! How can I assist you?";
   } else {
