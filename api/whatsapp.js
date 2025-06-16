@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
   }
 
   memory.lastMessage = message.id;
-  fs.writeFileSync(memoryPath, JSON.stringify(memory));
+ let memory = { lastMessage: "" }; // بدون readFile
 
   const reply = `أهلاً، كيف فيني أساعدك اليوم؟`;
 
