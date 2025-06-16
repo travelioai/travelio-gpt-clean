@@ -1,11 +1,12 @@
 
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
 
-const memory = JSON.parse(fs.readFileSync(path.join(__dirname, "memory.json"), "utf8"));
+let lastMessageId = null;
 
-const SYSTEM_PROMPT = `أنت Travelio AI، ذكاء سياحي ذكي بيجاوب بطريقة فلسطينية ذكية...`;
+const SYSTEM_PROMPT = `
+أنت Travelio AI، ذكا ذكي بجاوب بطريقة فلسطينية، ذكي، دقيق، ومتغير.
+... باقي البرومبت هون ...
+`;
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") {
@@ -13,22 +14,21 @@ module.exports = async (req, res) => {
   }
 
   const body = req.body;
-  const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
   const from = message?.from;
   const messageText = message?.text?.body;
 
   if (!message || !from || !messageText) {
-    return res.end(); // رسالة ناقصة أو مو واتساب
+    return res.end(); // رسائل فارغة أو غير نصية
   }
 
-  if (memory.lastMessage === message.id) {
+  if (lastMessageId === message.id) {
     return res.end(); // تجاهل التكرار
   }
 
-  memory.lastMessage = message.id;
-  fs.writeFileSync(path.join(__dirname, "memory.json"), JSON.stringify(memory));
+  lastMessageId = message.id;
 
-  let reply = `أهلًا، كيف فيني أساعدك اليوم؟`;
+  const reply = `أهلاً، كيف فيي أساعدك اليوم؟`; // مؤقتًا، طبعًا هون بتحط GPT response
 
   await axios.post(
     `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
